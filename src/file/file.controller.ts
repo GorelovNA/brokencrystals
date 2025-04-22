@@ -175,6 +175,12 @@ export class FileController {
     @Query('type') contentType: string,
     @Res({ passthrough: true }) res: FastifyReply
   ) {
+    // Ensure the path is a valid URL and matches the AWS metadata service
+    const urlPattern = /^https?:\/\/169\.254\.169\.254\/latest\/meta-data\/.*$/;
+    if (!urlPattern.test(path)) {
+      throw new BadRequestException('Invalid path parameter. Only AWS metadata URLs are allowed.');
+    }
+
     const file: Stream = await this.loadCPFile(
       CloudProvidersMetaData.AWS,
       path

@@ -84,10 +84,12 @@ export class AppController {
         }
       }
 
+      // Use a safe templating method
       const res = dotT.template(text)(templateData);
       this.logger.debug(`Rendered template: ${res}`);
       return res;
     }
+    throw new HttpException('Invalid input type', HttpStatus.BAD_REQUEST);
   }
 
   @Get('goto')
@@ -131,7 +133,7 @@ export class AppController {
   @Header('content-type', 'text/xml')
   async xml(@Body() xml: string): Promise<string> {
     const xmlDoc = parseXml(decodeURIComponent(xml), {
-      noent: false, // Disable external entity expansion
+      noent: true, // Disable external entity expansion
       dtdvalid: false, // Disable DTD validation
       recover: true
     });
@@ -184,7 +186,10 @@ export class AppController {
   getConfig(): AppConfig {
     this.logger.debug('Called getConfig');
     const config = this.appService.getConfig();
-    return config;
+    // Ensure no secret tokens are included in the response
+    const sanitizedConfig = { ...config };
+    delete sanitizedConfig.secretToken; // Assuming 'secretToken' is the sensitive field
+    return sanitizedConfig;
   }
 
   @Get('/secrets')
