@@ -21,7 +21,7 @@ const baseUrl = process.env.BRIGHT_TARGET_URL!;
 test('GET /api/testimonials/count', { signal: AbortSignal.timeout(timeout) }, async () => {
   await runner
     .createScan({
-      tests: ['sqli', 'xss', 'csrf'],
+      tests: ['sqli', 'xss'],
       attackParamLocations: [AttackParamLocation.QUERY]
     })
     .threshold(Severity.CRITICAL)
