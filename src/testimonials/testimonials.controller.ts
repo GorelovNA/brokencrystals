@@ -86,11 +86,6 @@ export class TestimonialsController {
   }
 
   @Get('count')
-  @ApiQuery({
-    name: 'query',
-    example: 'select count(*) as count from testimonial',
-    required: true
-  })
   @Header('content-type', 'text/html')
   @ApiOperation({
     description: API_DESC_GET_TESTIMONIALS_ON_SQL_QUERY
@@ -100,6 +95,23 @@ export class TestimonialsController {
   })
   async getCount(@Query('query') query: string): Promise<number> {
     this.logger.debug('Get count of testimonials.');
-    return await this.testimonialsService.count(query);
+    try {
+      // Sanitize the query parameter to prevent XSS
+      const sanitizedQuery = this.sanitizeInput(query);
+      return await this.testimonialsService.count(sanitizedQuery);
+    } catch (error) {
+      this.logger.error('Error occurred while getting testimonials count', error);
+      throw new Error('Unable to retrieve testimonials count at this time.');
+    }
+  }
+
+  private sanitizeInput(input: string): string {
+    // Basic HTML entity encoding to prevent XSS
+    return input.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;')
+                .replace(/\//g, '&#x2F;');
   }
 }
