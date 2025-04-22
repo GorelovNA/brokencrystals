@@ -86,11 +86,27 @@ export class FileController {
     @Query('type') contentType: string,
     @Res({ passthrough: true }) res: FastifyReply
   ) {
-    const file: Stream = await this.fileService.getFile(path);
-    const type = this.getContentType(contentType);
-    res.type(type);
+    try {
+      // Validate that the path is a relative path and does not contain any URL
+      if (path.includes('http://') || path.includes('https://')) {
+        throw new BadRequestException('Invalid path parameter. URLs are not allowed.');
+      }
 
-    return file;
+      // Ensure the path is a valid file path
+      const resolvedPath = path.resolve('/', path);
+      if (!resolvedPath.startsWith('/allowed/base/directory')) {
+        throw new BadRequestException('Invalid path parameter. Access to this path is not allowed.');
+      }
+
+      const file: Stream = await this.fileService.getFile(resolvedPath);
+      const type = this.getContentType(contentType);
+      res.type(type);
+
+      return file;
+    } catch (err) {
+      this.logger.error('Error loading file', err.stack);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).send({ error: 'Internal Server Error' });
+    }
   }
 
   @Get('/google')
@@ -197,6 +213,12 @@ export class FileController {
     @Query('type') contentType: string,
     @Res({ passthrough: true }) res: FastifyReply
   ) {
+    // Ensure the path is a valid URL and matches the Azure metadata service
+    const urlPattern = /^https?:\/\/169\.254\.169\.254\/metadata\/instance\/.*$/;
+    if (!urlPattern.test(path)) {
+      throw new BadRequestException('Invalid path parameter. Only Azure metadata URLs are allowed.');
+    }
+
     const file: Stream = await this.loadCPFile(
       CloudProvidersMetaData.AZURE,
       path
@@ -288,11 +310,11 @@ export class FileController {
       if (typeof raw === 'string' || Buffer.isBuffer(raw)) {
         await fs.promises.access(path.dirname(file), W_OK);
         await fs.promises.writeFile(file, raw);
-        return `File uploaded successfully at ${file}`;
+        return 'File uploaded successfully.';
       }
     } catch (err) {
-      this.logger.error(err.message);
-      throw err.message;
+      this.logger.error('Error uploading file', err.stack);
+      throw new BadRequestException('Failed to upload file.');
     }
   }
 
