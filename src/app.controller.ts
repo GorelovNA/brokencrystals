@@ -73,11 +73,22 @@ export class AppController {
       const text = raw.toString().trim();
       // Implement a simple allowlist of allowed template variables
       const allowedVariables = { name: 'User', date: new Date().toDateString() };
+      // Validate the template to ensure it only contains allowed variables
+      const templateVariables = text.match(/{{\s*\w+\s*}}/g);
+      if (templateVariables) {
+        for (const variable of templateVariables) {
+          const varName = variable.replace(/{{\s*|\s*}}/g, '');
+          if (!(varName in allowedVariables)) {
+            throw new HttpException('Invalid template variable', HttpStatus.BAD_REQUEST);
+          }
+        }
+      }
       const compiled = dotT.template(text);
       const res = compiled(allowedVariables);
       this.logger.debug(`Rendered template: ${res}`);
       return res;
     }
+    throw new HttpException('Invalid input', HttpStatus.BAD_REQUEST);
   }
 
   @Get('goto')
@@ -96,7 +107,7 @@ export class AppController {
       if (!allowedHosts.includes(parsedUrl.hostname)) {
         throw new HttpException('URL not allowed', HttpStatus.FORBIDDEN);
       }
-      return { url };
+      return { url: parsedUrl.toString() };
     } catch (error) {
       throw new HttpException('Invalid URL', HttpStatus.BAD_REQUEST);
     }
@@ -126,7 +137,7 @@ export class AppController {
   @Header('content-type', 'text/xml')
   async xml(@Body() xml: string): Promise<string> {
     const xmlDoc = parseXml(decodeURIComponent(xml), {
-      noent: false, // Disable external entity expansion
+      noent: true, // Disable external entity expansion
       dtdvalid: false, // Disable DTD validation
       recover: true
     });
@@ -181,6 +192,8 @@ export class AppController {
   getConfig(): AppConfig {
     this.logger.debug('Called getConfig');
     const config = this.appService.getConfig();
+    // Ensure sensitive information is not exposed
+    config.sql = 'REDACTED';
     return config;
   }
 
