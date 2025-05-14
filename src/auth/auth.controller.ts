@@ -100,7 +100,12 @@ export class AuthController {
     @Res({ passthrough: true }) res: FastifyReply
   ): Promise<LoginResponse> {
     this.logger.debug('Call loginWithRSAJwtKeysAdmin');
-    return this.loginWithRSAJwtKeys(req, res);
+    try {
+      return await this.loginWithRSAJwtKeys(req, res);
+    } catch (error) {
+      this.logger.error('Error during admin login', error);
+      throw new InternalServerErrorException('An unexpected error occurred.');
+    }
   }
 
   @Post('login')
@@ -129,10 +134,15 @@ export class AuthController {
 
     let loginData: LoginData;
 
-    if (req.op === FormMode.OIDC) {
-      loginData = await this.loginOidc(req);
-    } else {
-      loginData = await this.loginBasic(req);
+    try {
+      if (req.op === FormMode.OIDC) {
+        loginData = await this.loginOidc(req);
+      } else {
+        loginData = await this.loginBasic(req);
+      }
+    } catch (error) {
+      this.logger.error('Error during login process', error);
+      throw new InternalServerErrorException('An unexpected error occurred.');
     }
 
     const { token, ...loginResponse } = loginData;
@@ -678,16 +688,10 @@ export class AuthController {
       };
     } catch (err) {
       if (err.response?.status === 401) {
-        throw new UnauthorizedException({
-          error: 'Invalid credentials',
-          location: __filename
-        });
+        throw new UnauthorizedException('Invalid credentials');
       }
 
-      throw new InternalServerErrorException({
-        error: err.message,
-        location: __filename
-      });
+      throw new InternalServerErrorException('An unexpected error occurred.');
     }
   }
 
@@ -697,24 +701,15 @@ export class AuthController {
     try {
       user = await this.usersService.findByEmail(req.user);
     } catch (err) {
-      throw new InternalServerErrorException({
-        error: err.message,
-        location: __filename
-      });
+      throw new InternalServerErrorException('An unexpected error occurred.');
     }
 
     if (!user || !(await passwordMatches(req.password, user.password))) {
-      throw new UnauthorizedException({
-        error: 'Invalid credentials',
-        location: __filename
-      });
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.isBasic) {
-      throw new ForbiddenException({
-        error: 'Invalid authentication method for this user',
-        location: __filename
-      });
+      throw new ForbiddenException('Invalid authentication method for this user');
     }
 
     const token = await this.authService.createToken(
