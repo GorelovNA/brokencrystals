@@ -137,7 +137,7 @@ export class AppController {
   @Header('content-type', 'text/xml')
   async xml(@Body() xml: string): Promise<string> {
     const xmlDoc = parseXml(decodeURIComponent(xml), {
-      noent: true, // Disable external entity expansion
+      noent: false, // Disable external entity expansion
       dtdvalid: false, // Disable DTD validation
       recover: true
     });
@@ -194,6 +194,7 @@ export class AppController {
     const config = this.appService.getConfig();
     // Ensure sensitive information is not exposed
     config.sql = 'REDACTED';
+    config.googlemaps = 'REDACTED';
     return config;
   }
 
@@ -273,7 +274,7 @@ export class AppController {
       }
     }
   })
-  async getUserInfoV2(@Param('email') email: string): Promise<UserDto> {
+  async getUserInfoV2(@Param('email') email: Promise<UserDto> {
     try {
       return await this.appService.getUserInfo(email);
     } catch (err) {
